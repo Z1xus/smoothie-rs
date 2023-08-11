@@ -208,7 +208,16 @@ If you'd like help, take a screenshot of this message and your recipe and come o
 
             let ini_path = ini_path.canonicalize().unwrap().display().to_string();
 
-            open_file::open(ini_path, None);
+            if cfg!(target_os = "linux") {
+                match Command::new("nano").arg(&ini_path).status() {
+                    Ok(_) => (),
+                    Err(_) => {
+                        println!("Failed to open recipe with nano (is nano pkg installed?).\nThe recipe is located at {}", ini_path);
+                    }
+                }
+            } else {
+                open_file::open(ini_path, None);
+            }
             std::process::exit(0);
         }
         "root" | "dir" | "folder" => {
