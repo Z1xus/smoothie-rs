@@ -53,7 +53,6 @@ _, input_ext = path.splitext(input_video)
 
 temp_folder = gettempdir()
 cache_folder = path.join(temp_folder, path.basename(input_video) + str(path.getsize(input_video)))
-ffms2_cache = cache_folder + "-ffms2_index"
 bs_cache = cache_folder + "-bs_index"
 
 if input_ext == '.avi':
@@ -63,7 +62,6 @@ else:
 
     verb(f"cache_file: {bs_cache}")
     
-    # we gna try bestsource (av1 good)
     try:
         clip: vs.VideoNode = core.bs.VideoSource( # theres hwaccel support, someone pls figure it out
             source=input_video,
@@ -71,13 +69,9 @@ else:
             cachepath=bs_cache,           
             showprogress=False  # no progresso spamo
         )
-    except Exception as e:
+    except vs.Error as e:
         eprint(f"Failed to load video with BestSource: {e}")
-        clip: vs.VideoNode = core.ffms2.Source(
-            source=input_video,
-            cachefile=ffms2_cache,
-        )
-        verb("Falling back to ffms2 source")
+        raise 
 
     #clip: vs.VideoNode = core.lsmas.LWLibavSource(
     #    # * Docs and plugin came from https://github.com/AkarinVS/L-SMASH-Works/tree/master/VapourSynth
@@ -229,7 +223,16 @@ def Masking(
     og_clip_format = clip.format
 
     # technically a source as well, but it's 1 image, we chill
-    mask_src = core.ffms2.Source(MASK_PATH)
+    try:
+        mask_src = core.bs.VideoSource(
+            source=MASK_PATH,
+            cachemode=3,
+            cachepath=MASK_PATH + "-bs_index",
+            showprogress=False
+        )
+    except vs.Error as e:
+        eprint(f"Failed to load mask: {e}")
+        raise
 
     if to_mask.format.name == 'RGBS':
         mask_src = core.resize.Bicubic(clip=mask_src, format=vs.RGBS)
