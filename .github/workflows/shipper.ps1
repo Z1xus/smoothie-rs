@@ -5,15 +5,11 @@ mkdir ./smoothie-rs/bin/
 
 $curl = (Get-Command -Name curl -CommandType Application).Source | Select-Object -First 1
 
-& $curl -L https://github.com/couleurm/VSBundler/releases/latest/download/VapourSynth.7z -o"vapoursynth.7z"
-# consider doing your vsbundler shenanigans with upx later
-& $curl -L https://github.com/vapoursynth/bestsource/releases/download/R10/BestSource-R10.7z -o"bestsource.7z"
+& $curl -L https://github.com/z1xus/VSBundler/releases/latest/download/VapourSynth.7z -o"vapoursynth.7z"
 
 7z x vapoursynth.7z -osmoothie-rs/bin/
 mv smoothie-rs/bin/VapourSynth/* smoothie-rs/bin/
 rm smoothie-rs/bin/VapourSynth/
-
-7z x bestsource.7z -osmoothie-rs/bin/vapoursynth64/plugins
 
 $env:VAPOURSYNTH_LIB_DIR=(Get-Item ./smoothie-rs/bin/sdk/lib64/).FullName
 cargo build --release
