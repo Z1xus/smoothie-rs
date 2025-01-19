@@ -52,19 +52,32 @@ verb(f"CONTEXT: __file__: {__file__}")
 _, input_ext = path.splitext(input_video)
 
 temp_folder = gettempdir()
-cache_file = path.join(temp_folder, path.basename(input_video) + str(path.getsize(input_video)) + "-ffms2_index")
+cache_folder = path.join(temp_folder, path.basename(input_video) + str(path.getsize(input_video)))
+ffms2_cache = cache_folder + "-ffms2_index"
+bs_cache = cache_folder + "-bs_index"
 
 if input_ext == '.avi':
 
     clip: vs.VideoNode = core.avisource.AVISource(input_video)
 else:
 
-    verb(f"cache_file: {cache_file}")
-
-    clip: vs.VideoNode = core.ffms2.Source(
-        source=input_video,
-        cachefile=cache_file,
-    )
+    verb(f"cache_file: {bs_cache}")
+    
+    # we gna try bestsource (av1 good)
+    try:
+        clip: vs.VideoNode = core.bs.VideoSource( # theres hwaccel support, someone pls figure it out
+            source=input_video,
+            cachemode=3,  # write cache when needed
+            cachepath=bs_cache,           
+            showprogress=False  # no progresso spamo
+        )
+    except Exception as e:
+        eprint(f"Failed to load video with BestSource: {e}")
+        clip: vs.VideoNode = core.ffms2.Source(
+            source=input_video,
+            cachefile=ffms2_cache,
+        )
+        verb("Falling back to ffms2 source")
 
     #clip: vs.VideoNode = core.lsmas.LWLibavSource(
     #    # * Docs and plugin came from https://github.com/AkarinVS/L-SMASH-Works/tree/master/VapourSynth
