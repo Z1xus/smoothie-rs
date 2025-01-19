@@ -55,23 +55,18 @@ temp_folder = gettempdir()
 cache_folder = path.join(temp_folder, path.basename(input_video) + str(path.getsize(input_video)))
 bs_cache = cache_folder + "-bs_index"
 
-if input_ext == '.avi':
+verb(f"cache_file: {bs_cache}")
 
-    clip: vs.VideoNode = core.avisource.AVISource(input_video)
-else:
-
-    verb(f"cache_file: {bs_cache}")
-    
-    try:
-        clip: vs.VideoNode = core.bs.VideoSource( # theres hwaccel support, someone pls figure it out
-            source=input_video,
-            cachemode=3,  # write cache when needed
-            cachepath=bs_cache,           
-            showprogress=False  # no progresso spamo
-        )
-    except vs.Error as e:
-        eprint(f"Failed to load video with BestSource: {e}")
-        raise 
+try:
+    clip: vs.VideoNode = core.bs.VideoSource( # theres hwaccel support, someone pls figure it out
+        source=input_video,
+        cachemode=3,  # write cache when needed
+        cachepath=bs_cache,           
+        showprogress=False  # no progresso spamo
+    )
+except vs.Error as e:
+    eprint(f"Failed to load video with BestSource: {e}")
+    raise 
 
     #clip: vs.VideoNode = core.lsmas.LWLibavSource(
     #    # * Docs and plugin came from https://github.com/AkarinVS/L-SMASH-Works/tree/master/VapourSynth
