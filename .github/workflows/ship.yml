@@ -1,63 +1,124 @@
-name: Rust
+name: Build & Release
 
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  release-win:
-    runs-on: ${{ matrix.os }}
+  build:
+    runs-on: ${{ matrix.runner }}
 
     strategy:
       matrix:
-        os: [windows-2022]
-    
+        include:
+          - name: windows-x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary_suffix: .exe
+          - name: linux-x64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary_suffix: ""
+          - name: macos-x64
+            runner: macos-latest
+            target: x86_64-apple-darwin
+            binary_suffix: ""
+          - name: macos-arm64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            binary_suffix: ""
+
     steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - uses: actions/checkout@v3
-      with:
-        submodules: recursive
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
 
-    - uses: msys2/setup-msys2@v2
-      with:
-        msystem: UCRT64
-        update: true
-        install: mingw-w64-clang-x86_64-clang
+      # windows-only
+      - name: Setup VapourSynth (Windows)
+        if: matrix.runner == 'windows-latest'
+        shell: pwsh
+        run: |
+          mkdir -p ./smoothie-rs/bin/
+          curl -L https://github.com/couleurm/VSBundler/releases/latest/download/VapourSynth.7z -o"vapoursynth.7z"
+          7z x vapoursynth.7z -osmoothie-rs/bin/
+          mv smoothie-rs/bin/VapourSynth/* smoothie-rs/bin/
+          rm -r smoothie-rs/bin/VapourSynth/
+          echo "VAPOURSYNTH_LIB_DIR=$(Get-Item ./smoothie-rs/bin/sdk/lib64/).FullName" >> $env:GITHUB_ENV
 
-    - name: Set LIBCLANG_PATH
-      run: echo "LIBCLANG_PATH=$((gcm clang).source -replace "clang.exe")" >> $env:GITHUB_ENV
+      - name: Build Binary
+        run: cargo build --verbose --release --target ${{ matrix.target }}
 
-    - name: Ship
-      shell: pwsh
-      run: ./.github/workflows/shipper.ps1
+      # artifacts
+      - name: Package Release
+        shell: bash
+        run: |
+          mkdir -p ./smoothie-rs/bin/scripts/
+          
+          # Copy binary
+          if [[ "${{ matrix.runner }}" == "windows-latest" ]]; then
+            cp ./target/${{ matrix.target }}/release/smoothie-rs.exe ./smoothie-rs/bin/
+            cp ./target/scripts/* ./smoothie-rs/bin/scripts/ || true
+            cp ./target/jamba.vpy ./smoothie-rs/ || true
+            cp ./target/*.ini ./smoothie-rs/ || true
+            
+            # Create Windows launch scripts
+            echo '@echo off
+            title smoothie-rs
+            cd /D "%~dp0"
+            .\bin\smoothie-rs.exe --tui
+            timeout 1 > nul' > ./smoothie-rs/launch.cmd
+            
+            echo '@echo off
+            title make smoothie-rs shortcuts
+            PowerShell "iex(irm tl.ctt.cx); Invoke-SmoothieRsPost -DIR "%~dp0""
+            echo Shortcuts done
+            echo.
+            set /p choice="Add smoothie-rs to PATH? (convenient use from command line) [Y/N]: "
+            if /i "%choice%"=="Y" (
+                setx PATH "%PATH%;%~dp0bin"
+                echo Done, do not forget to adjust it if you move smoothies folder in the future
+                echo.
+            )
+            echo Feel free to delete or hide this batchfile
+            timeout 5 > nul' > ./smoothie-rs/makeShortcuts.cmd
+          else
+            cp ./target/${{ matrix.target }}/release/smoothie-rs ./smoothie-rs/bin/
+          fi
+          
+          # Create platform-specific archive
+          ARCHIVE_NAME="smoothie-rs-${{ matrix.name }}.zip"
+          7z a "$ARCHIVE_NAME" ./smoothie-rs/*
 
-#    - name: Compress binaries
-#      uses: svenstaro/upx-action@v2
-#      with:
-#        args: -9
-#        files: |
-#          smoothie-rs-artifact/bin/smoothie*.exe
-#          smoothie-rs-artifact/bin/vapoursynth64/plugins/*.dll
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoothie-rs-${{ matrix.name }}
+          path: ./smoothie-rs/
+          
+      - name: Generate Release Tag
+        id: tag
+        shell: bash
+        run: |
+          echo "release_tag=Nightly_$(date +'%Y.%m.%d_%H-%M')" >> $GITHUB_OUTPUT
 
-    - uses: actions/upload-artifact@v4
-      with:
-        name: smoothie-rs-bin-windows
-        path: ./smoothie-rs/
-
-    - name: Generate release tag
-      id: tag
-      run: echo "::set-output name=release_tag::Nightly_$(date +"%Y.%m.%d_%H-%M")"
-
-    - uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        fail_on_unmatched_files: true
-        files: |
-          ./smoothie-rs-nightly.zip
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          files: smoothie-rs-${{ matrix.name }}.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: true
