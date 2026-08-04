@@ -1,3 +1,9 @@
+> [!NOTE]
+> The `open-svpflow` branch bundles the latest [open-svpflow](https://github.com/Z1xus/open-svpflow) release instead of the proprietary SVPFlow plugins. It has native I444 input and output support  
+> For I444 clips, it showed to be 32% faster than the old workaround on my 1080p 165 fps test clip (14.42 vs 10.93 fps)
+
+<br>
+
 <p href="">
     <img src="https://ctt.cx/assets/images/video/smoothie/smoothie-gui.webp" width="220"  align="right">
 </p>
@@ -31,6 +37,7 @@
 </p>
 
 smoothie-rs is a rewrite of [smoothie](https://github.com/couleur-tweak-tips/smoothie) in rust, find the documentation over on [ctt.cx/smoothie](https://ctt.cx/video/smoothie)
+
 
 Thanks to tekno, yalter and anima for inspiration
 
@@ -71,5 +78,3 @@ And developping it would mean:
 
 I don't consider it worth working on nowadays
 </details>
-
-

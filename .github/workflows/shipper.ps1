@@ -11,6 +11,8 @@ mv smoothie-rs/bin/VapourSynth/* smoothie-rs/bin/
 rm smoothie-rs/bin/VapourSynth/
 
 $env:VAPOURSYNTH_LIB_DIR=(Get-Item ./smoothie-rs/bin/sdk/lib64/).FullName
+& $curl -fL https://github.com/Z1xus/open-svpflow/releases/latest/download/svpflow1_vs.dll -o ./smoothie-rs/bin/vapoursynth64/plugins/svpflow1_vs.dll
+& $curl -fL https://github.com/Z1xus/open-svpflow/releases/latest/download/svpflow2_vs.dll -o ./smoothie-rs/bin/vapoursynth64/plugins/svpflow2_vs.dll
 cargo build --release
 
 cp ./target/release/smoothie-rs.exe ./smoothie-rs/bin/
