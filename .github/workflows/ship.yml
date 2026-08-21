@@ -55,11 +55,34 @@ jobs:
 
     - name: Generate release tag
       id: tag
-      run: echo "::set-output name=release_tag::Nightly_$(date +"%Y.%m.%d_%H-%M")"
+      env:
+        BRANCH_NAME: ${{ github.ref_name }}
+      run: |
+        echo "::set-output name=release_tag::Nightly_${env:BRANCH_NAME}_$(date +"%Y.%m.%d_%H-%M")"
+        echo "::set-output name=short_sha::$(git rev-parse --short HEAD)"
+
+    - name: Hash bundled SVPFlow plugins
+      id: svphash
+      shell: pwsh
+      run: |
+        "hashes<<EOF" >> $env:GITHUB_OUTPUT
+        Get-FileHash ./smoothie-rs/bin/vs-plugins/svpflow*_vs.dll -Algorithm SHA256 |
+          Sort-Object Path |
+          ForEach-Object { "- ``$(Split-Path $_.Path -Leaf)``: ``$($_.Hash.ToLower())``" } >> $env:GITHUB_OUTPUT
+        "EOF" >> $env:GITHUB_OUTPUT
 
     - uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
+        target_commitish: ${{ github.sha }}
+        body: |
+          Automated nightly build of **${{ github.ref_name }}** @ `${{ steps.tag.outputs.short_sha }}`
+
+          - Branch: ${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}
+          - Commit: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
+          Bundled SVPFlow plugins ([Z1xus/open-svpflow](https://github.com/Z1xus/open-svpflow) `latest`):
+          ${{ steps.svphash.outputs.hashes }}
         fail_on_unmatched_files: true
         files: |
           ./smoothie-rs-nightly.zip
